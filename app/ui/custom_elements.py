@@ -1,7 +1,68 @@
 import os
 from PySide6.QtCore import QFileInfo, Qt, QEvent, Signal, QObject
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import (QFileIconProvider, QWidget, QVBoxLayout, QLabel)
+from PySide6.QtWidgets import (QFileIconProvider, QWidget, QVBoxLayout, QLabel, QDialog, QLineEdit, QPushButton, QHBoxLayout, QFileDialog)
+
+
+
+class SetupDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Initial Setup")
+        self.setFixedWidth(400)
+        self.result_config = None
+        
+        layout = QVBoxLayout(self)
+
+        # Path Input
+        layout.addWidget(QLabel("Search Paths (comma separated):"))
+        self.path_input = QLineEdit()
+        self.path_input.setPlaceholderText("e.g. C:/Users/Documents, D:/Videos")
+        
+        path_btn = QPushButton("Browse...")
+        path_btn.clicked.connect(self.browse_folder)
+        
+        path_row = QHBoxLayout()
+        path_row.addWidget(self.path_input)
+        path_row.addWidget(path_btn)
+        layout.addLayout(path_row)
+
+        # Extensions Input
+        layout.addWidget(QLabel("Extensions (comma separated):"))
+        self.ext_input = QLineEdit()
+        self.ext_input.setPlaceholderText("e.g. mp4, pdf, docx")
+        layout.addWidget(self.ext_input)
+
+        # Submit
+        self.submit_btn = QPushButton("Save and Start")
+        self.submit_btn.clicked.connect(self.validate_and_submit)
+        layout.addWidget(self.submit_btn)
+
+    def browse_folder(self):
+        folder = QFileDialog.getExistingDirectory(self, "Select Directory")
+        if folder:
+            current = self.path_input.text()
+            self.path_input.setText(f"{current}, {folder}" if current else folder)
+
+    def validate_and_submit(self):
+        # Split and clean inputs
+        paths = [p.strip() for p in self.path_input.text().split(",") if p.strip()]
+        exts = [e.strip().replace(".", "") for e in self.ext_input.text().split(",") if e.strip()]
+
+        # Validation: Check if paths exist and lists aren't empty
+        valid_paths = [p for p in paths if os.path.isdir(p)]
+        
+        if not valid_paths:
+            self.path_input.setStyleSheet("border: 1px solid red;")
+            return
+        if not exts:
+            self.ext_input.setStyleSheet("border: 1px solid red;")
+            return
+
+        self.result_config = {"paths": valid_paths, "extensions": exts}
+        self.accept()
+
+
 
 # --- 1. Event Filter for Individual Elements ---
 class DoubleClickFilter(QObject):

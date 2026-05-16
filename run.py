@@ -1,32 +1,47 @@
 import argparse
+import json
+import os
+import sys
+from PySide6.QtWidgets import (QApplication, QDialog, QVBoxLayout, QHBoxLayout, 
+                             QLineEdit, QPushButton, QLabel, QFileDialog)
+from PySide6.QtCore import Qt
 from app.storage import db
 from app.ui.window import SearchApp
+from app.ui.custom_elements import SetupDialog
+from app.utils.paths import CONFIG_FILE
+
+
+def get_config():
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, "r") as f:
+            return json.load(f)
+
+    app = QApplication.instance() or QApplication(sys.argv)
+    dialog = SetupDialog()
+    if dialog.exec() == QDialog.Accepted:
+        config = dialog.result_config
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(config, f, indent=4)
+        return config
+    else:
+        # Exit the entire script if they close the dialog without submitting
+        sys.exit("Setup cancelled by user.")
 
 def parse_arguments():
-    """Handles Command Line Interface (CLI) configuration flags flags."""
     parser = argparse.ArgumentParser(description="Scrollable Table Engine")
-    parser.add_argument("--reindex", action="store_true", help="Force clear and rebuild database index.")
-    parser.add_argument("--no-watch", action="store_true", help="Disable the background live directory watcher service.")
-    parser.add_argument("--debug", action="store_true", help="Run application framework in verbose mode.")
+    parser.add_argument("--reindex", action="store_true", help="Force rebuild index.")
+    parser.add_argument("--no-watch", action="store_true", help="Disable live watcher.")
     return parser.parse_args()
 
 if __name__ == "__main__":
-    # 1. Initialize Runtime Arguments & Configuration
     args = parse_arguments()
+    config = get_config()
     
-    # 2. Initialize Database Layer
-    # Clear the schema instantly if --reindex flag is passed down by CLI user
-    db.init_db(drop_tables=args.reindex, vector_len=768)
+    db.init_db(drop_tables=args.reindex, vector_len=384)
     
-    # Default runtime configurations
-    default_paths = ["D:\Videos\AI Development"]
-    default_extensions = {'mp4', 'pdf'}
-    
-    # 3. Boot Application Lifecycle Thread Loop
-    # Blocks executing process internally until user dismisses native window 
     SearchApp.start_class_app(
-        paths=default_paths, 
-        extensions=default_extensions,
+        paths=config["paths"], 
+        extensions=set(config["extensions"]),
         enable_watcher=not args.no_watch
-
     )
+

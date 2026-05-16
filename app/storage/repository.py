@@ -40,27 +40,25 @@ from sqlite3 import Connection
 from typing import List, Optional
 from app.storage.db import get_connection
 from app.storage.models import File
-from app.search.embedding_model import embed_text
+from app.search.embedding_model import embed_batch, embed_query, embed_text
 from app.utils.metadata import row_to_file
+
+
+def search_files_by_semilarity(query, k: int = 50) -> List[File]:
+    """Search for similar files by vector embedding, returns list of File objects."""
+    query_embedding = embed_query(query)
+    names_n_score = _search_by_vector(query, query_embedding, k)
+    return get_files_by_names(names_n_score=names_n_score)
 
 
 def _search_by_vector(query, query_embedding: list[float], k: int = 50) -> List[str]:
     """Search for similar files by vector embedding, returns list of file names."""
-    # vec0 requires the query vector to be serialized, usually as JSON
-    # query_json = json.dumps(query_embedding)
     db = get_connection()
     cursor = db.execute("SELECT name, distance FROM files_vector WHERE embedding MATCH ? AND k = ? ORDER BY distance ASC", (query_embedding, k))
     rows = cursor.fetchall()
     # print(query.split(":")[1], " -> ", [row[0] + f' {row[1] :.3}' for row in rows if row[1] < 0.55])
     return [row for row in rows if row[1] < 0.6]
     # return rows
-
-
-def search_files_by_semilarity(query, k: int = 50) -> List[File]:
-    """Search for similar files by vector embedding, returns list of File objects."""
-    query_embedding = embed_text(query)
-    names_n_score = _search_by_vector(query, query_embedding, k)
-    return get_files_by_names(names_n_score=names_n_score)
 
 
 def insert_file(file: File):
@@ -94,16 +92,19 @@ def bulk_insert(files: List[File]):
 
 
 def _bulk_insert_embedding(db: Connection, files: list[File]):
-    # Identify which names actually need new embeddings
-    # This avoids calling embed_text() for names already in the DB
-    names = list({f.name for f in files})  # Unique names in this batch
+    unique_files = {f.name: f for f in files}
+    names = list(unique_files.keys())
     placeholders = ','.join(['?'] * len(names))
     existing = db.execute(f"SELECT name FROM files_vector WHERE name IN ({placeholders})", names).fetchall()
     existing_names = {row[0] for row in existing}
-    missing_names = [n for n in names if n not in existing_names]
-    # Bulk insert only the missing embeddings
-    if missing_names:
-        db.executemany("INSERT OR IGNORE INTO files_vector (name, embedding) VALUES (?, ?)", [(name, embed_text(name)) for name in missing_names])
+    missing_files = [f for name, f in unique_files.items() if name not in existing_names]
+    if missing_files:
+        phrases = [f"This is a {f.path.split('.')[-1].upper()} file named {f.name}. It is stored at: {f.path}." for f in missing_files]
+        embeddings = embed_batch(phrases)
+        insert_data = [(f.name, emb) for f, emb in zip(missing_files, embeddings)]
+        db.executemany("INSERT OR IGNORE INTO files_vector (name, embedding) VALUES (?, ?)", insert_data)
+
+
 
 
 def delete_file(path: str):

@@ -22,12 +22,13 @@ class ScanWorker(QThread):
 
     def run(self):
         from app.indexing import scanner
-        print("[Engine] Scan background thread running...")
+        print("[window] Loading embedding model...")
         self.dialog.setLabelText('Loading embedding model...')
         load_model()
+        print("[window] Scanning file system...")
         self.dialog.setLabelText('Scanning file system...')
         scanner.batch_scan(**self.params)
-        print("[Engine] Scan background thread finished.")
+        print("[window] Scan finished.")
         self.scan_finished.emit()
 
 
@@ -47,7 +48,7 @@ class SearchApp(QWidget):
         self.scan_thread = None
         
         self.setWindowTitle("Semantic v_0.1")
-        self.resize(500, 700)
+        self.resize(800, 700)
 
         # 1. Main Vertical Layout
         self.main_layout = QVBoxLayout(self)
@@ -191,11 +192,11 @@ class SearchApp(QWidget):
 
     # --- ORIGINAL DOUBLE CLICK LOGIC MAINTAINED UNTOUCHED ---
     def on_table_cell_double_clicked(self, index):
-        if index.column() == 0:
+        if index.column() in [0, 1]:
             file_path = index.data(Qt.ToolTipRole)
             file_url = QUrl.fromLocalFile(file_path)
             QDesktopServices.openUrl(file_url)
-        if index.column() == 1:
+        if index.column() == 2:
             file_path = index.data(Qt.ToolTipRole)
             subprocess.run(f'explorer /select,"{os.path.normpath(file_path)}"')
 

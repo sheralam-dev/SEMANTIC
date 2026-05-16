@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.storage.models import File
-from app.ui.elements import ThumbnailWidget
+from app.ui.custom_elements import ThumbnailWidget
 
 
 class DetailView(QTableView):
@@ -23,12 +23,11 @@ class DetailView(QTableView):
 
     def update(self, files):
         self.table_model.clear()
-        self.table_model.setHorizontalHeaderLabels(["", "Name", "Score", "Path"])
+        self.table_model.setHorizontalHeaderLabels(["", "Name", "Path"])
         
         for row in range(len(files)):
             row_items = []
             file = files[row]
-            
             
             for col in range(4):
                 item = QStandardItem()
@@ -43,16 +42,16 @@ class DetailView(QTableView):
                     font = item.font()
                     font.setBold(True)
                     item.setFont(font)
+                # elif col == 2:
+                #     item.setText(f'{file.score:.3}')
                 elif col == 2:
-                    item.setText(f'{file.score:.3}')
-                elif col == 3:
                     item.setText(file.path) 
                 row_items.append(item)
             self.table_model.appendRow(row_items)
             
         self.resizeColumnToContents(0)
         self.resizeColumnToContents(2)
-        self.setColumnWidth(1, int(self.width() * 0.6))
+        self.setColumnWidth(1, int(self.width() * 0.45))
         self.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
 
     def _get_memitype_icon(self, file_path: str):
