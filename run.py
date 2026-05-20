@@ -1,13 +1,8 @@
-import argparse
-import json
 import os
-import sys
-from PySide6.QtWidgets import (QApplication, QDialog, QVBoxLayout, QHBoxLayout, 
-                             QLineEdit, QPushButton, QLabel, QFileDialog)
-from PySide6.QtCore import Qt
+import json
+import argparse
 from app.storage import db
 from app.ui.window import SearchApp
-from app.ui.custom_elements import SetupDialog
 from app.utils.paths import CONFIG_FILE
 
 
@@ -15,17 +10,8 @@ def get_config():
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, "r") as f:
             return json.load(f)
+    return None
 
-    app = QApplication.instance() or QApplication(sys.argv)
-    dialog = SetupDialog()
-    if dialog.exec() == QDialog.Accepted:
-        config = dialog.result_config
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(config, f, indent=4)
-        return config
-    else:
-        # Exit the entire script if they close the dialog without submitting
-        sys.exit("Setup cancelled by user.")
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Scrollable Table Engine")
@@ -36,12 +22,9 @@ def parse_arguments():
 if __name__ == "__main__":
     args = parse_arguments()
     config = get_config()
-    
-    db.init_db(drop_tables=args.reindex, vector_len=384)
-    
+    db.init_db(drop_tables=True, vector_len=384)
     SearchApp.start_class_app(
-        paths=config["paths"], 
-        extensions=set(config["extensions"]),
+        config=config,
         enable_watcher=not args.no_watch
     )
 

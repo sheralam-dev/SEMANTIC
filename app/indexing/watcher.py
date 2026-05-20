@@ -34,7 +34,6 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEvent, PatternMatchingEventHandler
 
 
-from app.utils.metadata import path_to_file
 from app.storage.models import File
 import app.storage.repository as repo
 
@@ -50,7 +49,7 @@ def process_events(event_queue: Queue):
         src_path = Path(event.src_path)
         match event.event_type:
             case 'created': 
-                file: File = path_to_file(src_path)
+                file: File = File(src_path)
                 repo.insert_file(file)
                 print(f'record inserted: {file.name}')
             case 'deleted': 
@@ -81,7 +80,7 @@ class FastEventHandler(PatternMatchingEventHandler):
 
 # 3. Setting it up
 def start_watching_async(params: dict):
-    print(params)
+    print(f'[watcher.py] {params = }')
     event_queue = Queue()
     # Start the worker thread
     worker = Thread(target=process_events, args=(event_queue,), daemon=True)
@@ -94,15 +93,3 @@ def start_watching_async(params: dict):
     observer.schedule(handler, params['paths'][0], recursive=True)
     observer.start()
     return observer
-
-
-if __name__ == "__main__":
-    print('observing...')
-    observer = start_watching_async()
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print('exiting...')
-        observer.stop()
-    observer.join()

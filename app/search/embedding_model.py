@@ -8,8 +8,9 @@ from app.utils.paths import MODEL_PATH, BASE_DIR
 _model = None
 _model_lock = Lock()
 
+
 def load_model(
-    model_name: str = "Snowflake/snowflake-arctic-embed-s", 
+    model_name: str = "Snowflake/snowflake-arctic-embed-s",
     cache_dir: str = str(MODEL_PATH), 
     download: bool = True
 ):
@@ -17,31 +18,32 @@ def load_model(
     global _model
     device = "cuda" if cuda.is_available() else "cpu"
     
+    # Format the name exactly like Hugging Face does for the folder
+    repo_id = model_name.replace("/", "--")
+    folder_name = f"models--{repo_id}"
+    full_path = os.path.join(cache_dir, folder_name)
+
     with _model_lock:
         if _model is not None:
             return _model
-        # 1. Join the paths and normalize for Windows
-        # This converts forward slashes to backslashes and makes it absolute
-        full_path = os.path.abspath(os.path.join(cache_dir, model_name))
-        # 2. Add a sanity check print
+            
         print(f"Checking Path: {full_path}")
-        print(f"Folder exists: {os.path.exists(full_path)}")
+        
+        # If the HF folder exists, load from the cache_dir
         if os.path.exists(full_path):
-            # Pass the absolute string path. Do NOT use model_name or cache_folder here.
-            # Passing the full local path as the FIRST argument triggers offline mode.
+            print("Model found in cache. Loading locally...")
             _model = SentenceTransformer(
-                full_path, 
-                local_files_only=True,
-                trust_remote_code=True
+                model_name, 
+                cache_folder=cache_dir, 
+                local_files_only=True
             ).to(device)
         else:
-            # Only if folder is missing, try downloading
             if not download:
-                raise FileNotFoundError(f"Model not found at {full_path} and download=False")
-            _model = SentenceTransformer(model_name).to(device)
-    return _model 
-
-
+                raise FileNotFoundError(f"Model not found and download=False")
+            print("Downloading model...")
+            _model = SentenceTransformer(model_name, cache_folder=cache_dir).to(device)
+            
+    return _model
 
 
 def embed_text(text: str) -> np.ndarray:
@@ -57,7 +59,7 @@ def embed_query(query: str):
 
 def embed_batch(texts: list[str]) -> np.ndarray:
     model = load_model()
-    batch_size = 32 if model.device == "cuda" else 8
+    batch_size = 256 if model.device == "cuda" else 32
     embs = model.encode(texts, batch_size=batch_size, show_progress_bar=False, normalize_embeddings=True)
     return np.array(embs, dtype=np.float32)
 
