@@ -1,159 +1,87 @@
-## SEMANTIC - A Semantic Search Desktop App (v0.1)
+## SEMANTIC — Local Semantic Search (v0.1)
 
-Local desktop application for **semantic file search** using vector embeddings and SQLite.
+Lightweight local semantic search desktop app that indexes files, builds vector embeddings, and provides fast similarity search using an embedded SQLite vector store.
 
----
-
-### Features
-
-* Semantic search using `BAAI/bge-base-en-v1.5`
-* SQLite-based storage (no external services)
-* Background indexing (non-blocking UI)
-* Optional live file watcher
-* Grid + Detail views
-* Fast local search (~10k files optimized)
+Key goals:
+- Search local files by meaning, not just keywords
+- Operate fully offline with a small footprint
+- Easy developer-first codebase for experimentation
 
 ---
 
-### Tech Stack
-
-* UI: PyQt
-* Embeddings: `BAAI/bge-base-en-v1.5` from Beijing Academy of Artificial Intelligence
-* Database: SQLite
-* Language: Python
-
----
-
-### Installation
+**Quick install**
 
 ```bash
 pip install -r requirements.txt
 ```
 
----
-
-### Usage
-
-Run the app:
+**Run**
 
 ```bash
 python run.py
 ```
 
----
+**CLI options**
 
-### CLI Options
-
-```bash
-python run.py [options]
-```
-
-* `--reindex`
-  Drops existing tables and rebuilds the index
-
-* `--no-watch`
-  Disables live file system watcher
-
-* `--debug`
-  Enables verbose logging
+- `--reindex`    Rebuilds the SQLite index from scratch
+- `--no-watch`   Disable live filesystem watcher
+- `--debug`      Enable verbose logging
 
 ---
 
-### Default Configuration
+Requirements (see `requirements.txt`):
 
-```python
-default_paths = ["D:\\Videos\\AI Development"]
-default_extensions = {"mp4", "pdf"}
-```
-
-Modify in `run.py` as needed.
+- `sqlite-vec`, `watchdog`, `sentence_transformers`, `numpy`, `PySide6`
 
 ---
 
-### How It Works
+Configuration
 
-**Startup Flow**
-
-1. Parse CLI arguments
-2. Initialize SQLite DB
-
-   * Rebuild if `--reindex`
-3. Launch UI (`SearchApp`)
-4. Start background scan thread
-
-**Indexing**
-
-```
-File → Metadata → Embedding → SQLite
-```
-
-**Search**
-
-```
-Query → Embedding → Vector similarity → Top results
-```
+- Default paths and extensions can be adjusted in `run.py` or the relevant config helpers in `app/`.
+- Models are expected under the `models/` folder or loaded via the embedding adapter in `app/search/embedding_model.py`.
 
 ---
 
-### Architecture
+Project layout
 
 ```
-run.py                # Entry point (CLI + boot)
+run.py                 # Entry point (CLI + UI launch)
+test.py                # Quick test harness
 app/
- ├── storage/
- │   └── db.py        # SQLite init
- │
- ├── indexing/
- │   ├── scanner.py   # Batch indexing
- │   └── watcher.py   # Live FS monitor
- │
- ├── repository/
- │   └── search       # Similarity queries
- │
- └── ui/
-     └── window.py    # Main app (SearchApp)
+  ├─ indexing/         # scanner.py (batch), watcher.py (live)
+  ├─ search/           # embedding model adapter, search logic
+  ├─ storage/          # db.py, repository layer
+  └─ ui/               # window.py, results_view, custom elements
+models/                # local model snapshots (optional)
+data/                  # indexed file metadata and auxiliary data
 ```
 
 ---
 
-### Core Components
+How it works (high level)
 
-* **ScanWorker (QThread)**
-
-  * Loads model
-  * Runs batch scan
-  * Emits completion signal
-
-* **SearchApp**
-
-  * UI + lifecycle manager
-  * Handles threading + watcher
-
-* **SQLite DB**
-
-  * Stores file records + embeddings (768-dim)
+1. Scanner discovers files and extracts metadata
+2. Embedding model converts text to vector
+3. Vectors and metadata are stored in SQLite (`sqlite-vec`)
+4. UI sends queries → embedding → nearest-neighbor lookup
 
 ---
 
-### Notes
+Development notes
 
-* First run is slower (model load + indexing)
-* Subsequent searches are instant
-* Works fully offline
-* Designed for local file systems
-
----
-
-### Future Improvements
-
-* Incremental indexing
-* Hybrid search (keyword + vector)
-* GPU support
-* File preview panel
-* Cross-platform enhancements
+- Embedding dimension and model choice are pluggable via `app/search/embedding_model.py`.
+- Background scanning runs in a worker thread so the UI remains responsive.
+- Use `--reindex` during development when changing indexing logic.
 
 ---
 
-### License
+License
 
-MIT (or specify)
+MIT
+
+---
+
+If you'd like, I can also:
+- Add a short CONTRIBUTING section
+- Add usage examples and example data for quick demos
+- Commit the change and run a lint/format pass
