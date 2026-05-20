@@ -81,7 +81,3 @@ MIT
 
 ---
 
-If you'd like, I can also:
-- Add a short CONTRIBUTING section
-- Add usage examples and example data for quick demos
-- Commit the change and run a lint/format pass
