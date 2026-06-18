@@ -57,6 +57,6 @@ class File:
     
     def get_phrase(self):
         clean_name = self.name.replace('_', ' ').replace('-', ' ')
-        phrase = phrase = f"{self.name} {self.extension} ({self.path})"
+        phrase = phrase = f"{clean_name} {self.extension} ({self.path})"
         # print(phrase)
         return phrase

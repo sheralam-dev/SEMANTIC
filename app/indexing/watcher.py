@@ -1,38 +1,9 @@
-'''
-watcher.py — Real-time File Monitoring
-Purpose: keep index updated using watchdog.
-
-Starts observers on indexed paths
-Listens to create / delete / modify / move events
-Converts events → normalized actions
-Sends events to indexer.py
-
-Key classes:
-
-FileEventHandler(FileSystemEventHandler)
-WatcherService
-
-Key methods:
-
-start(paths)
-on_created(event)
-on_deleted(event)
-on_modified(event)
-on_moved(event)
-
-Notes:
-
-Debounce duplicate events
-Run in separate thread
-'''
 
 from pathlib import Path
-import time
 from queue import Queue
 from threading import Thread
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEvent, PatternMatchingEventHandler
-
 
 from app.storage.models import File
 import app.storage.repository as repo
@@ -71,7 +42,6 @@ class FastEventHandler(PatternMatchingEventHandler):
             case_sensitive=False,
         )
         self.event_queue = event_queue
-
     def on_any_event(self, event):
         if event.event_type == 'modified': 
             return
@@ -85,7 +55,6 @@ def start_watching_async(params: dict):
     # Start the worker thread
     worker = Thread(target=process_events, args=(event_queue,), daemon=True)
     worker.start()
-
     # Start the watcher
     extensions = [f"*.{ext}" for ext in params['extensions']]
     handler = FastEventHandler(event_queue, extensions)

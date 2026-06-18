@@ -4,7 +4,7 @@ from typing import List
 
 from app.storage.db import get_connection
 from app.storage.models import File
-from app.search.embedding_model import embed_batch, embed_query, embed_text
+from app.search.embedding_model_onnx import embed_batch, embed_query, embed_text
 
 
 def search_similar_files(user_input: str, top_k: int, max_distance: float=0.55) -> List[File]:

@@ -23,3 +23,4 @@ MODEL_PATH = BASE_DIR / "models"
 DB_PATH = DATA_DIR / "files.db"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG_FILE = DATA_DIR /"config.json"
+ICON_PATH = BASE_DIR / "app.ico"

@@ -1,17 +1,22 @@
-import json
 import os
-import subprocess
 import sys
+import json
+import subprocess
 from typing import List
-from PySide6.QtCore import QUrl, Qt, QThread, Signal, Slot
-from PySide6.QtGui import QDesktopServices
-from PySide6.QtWidgets import (QApplication, QDialog, QHBoxLayout, QProgressDialog, QPushButton, QStackedWidget, QStyle, QWidget, QVBoxLayout, QLineEdit)
-from app.search.embedding_model import load_model
+from PySide6.QtCore import QEvent, QObject, QUrl, Qt, QThread, Signal, Slot
+from PySide6.QtGui import QDesktopServices, QIcon, QAction
+from PySide6.QtWidgets import (
+    QApplication, QDialog, QHBoxLayout, QProgressDialog, 
+    QPushButton, QStackedWidget, QStyle, QWidget, QVBoxLayout, 
+    QLineEdit, QMainWindow, QSystemTrayIcon, QMenu
+    )
+
+from app.search.embedding_model_onnx import load_model
 from app.storage import db, repository
 from app.storage.models import File
 from app.ui.custom_elements import SetupDialog
 from app.ui.results_view import DetailView, GridView
-from app.utils.paths import CONFIG_FILE
+from app.utils.paths import CONFIG_FILE, ICON_PATH
 
 # --- NEW: QT SAFE THREAD WORKER COMPONENT ---
 class ScanWorker(QThread):
@@ -41,12 +46,13 @@ class SearchApp(QWidget):
         super().__init__()
         
         # New State Variables for Service Control
+        self.really_quit = False
         self.enable_watcher = enable_watcher
         self.observer = None
         self.scan_thread = None
         self.params = {"paths": [], "extensions": [], "batch_size": 200}
         
-        self.setWindowTitle("Semantic v_0.2")
+        self.setWindowTitle("Semantic v_1.0")
         self.resize(850, 600)
 
         # 1. Main Vertical Layout
@@ -59,6 +65,7 @@ class SearchApp(QWidget):
         # Setting Button Setup
         self.settings_btn = QPushButton("⚙")
         self.settings_btn.setMinimumHeight(38)
+        self.settings_btn.setMaximumWidth(38)
         self.settings_btn.setToolTip("Settings")
         # self.settings_btn.setIcon(settings_icon)
         self.header_layout.addWidget(self.settings_btn)
@@ -104,6 +111,29 @@ class SearchApp(QWidget):
         if config:
             self.params.update(config) 
             self.trigger_background_scan()
+        
+                # 1. Setup Tray Icon
+        self.tray_icon = QSystemTrayIcon(self)
+        self.tray_icon.setIcon(QIcon(str(ICON_PATH)))  
+        self.tray_icon.setToolTip("SEMANTIC")
+        
+        # 2. Create Tray Menu
+        tray_menu = QMenu()
+        show_action = QAction("Show App", self)
+        quit_action = QAction("Exit", self)
+        
+        show_action.triggered.connect(self.showNormal)
+        quit_action.triggered.connect(self.force_quit)
+        
+        tray_menu.addAction(show_action)
+        tray_menu.addSeparator()
+        tray_menu.addAction(quit_action)
+        
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.show()
+
+        # Handle double click on tray icon
+        self.tray_icon.activated.connect(self.on_tray_icon_activated)
 
     @property
     def result_view(self):
@@ -131,10 +161,15 @@ class SearchApp(QWidget):
         """Asynchronously triggers directory file engine index scanning safely."""
         # 1. Create the blocking dialog
         self.dialog = QProgressDialog("", None, 0, 0, self)
-        self.dialog.setFixedWidth(500)
+        self.dialog.setFixedWidth(300)
         self.dialog.setWindowTitle("Please Wait")
         self.dialog.setWindowModality(Qt.WindowModality.WindowModal)
-        
+        class EscapeFilter(QObject):
+            def eventFilter(self, obj, event):
+                if event.type() == QEvent.KeyPress and event.key() == Qt.Key_Escape:
+                    return True  # Stop the event from reaching the dialog
+                return False
+        self.dialog.installEventFilter(EscapeFilter())
         # Remove close button and reset cancel configurations
         self.dialog.setWindowFlags(self.dialog.windowFlags() & ~Qt.WindowCloseButtonHint)
         self.dialog.setCancelButton(None) 
@@ -190,23 +225,50 @@ class SearchApp(QWidget):
             self.observer = None
         self.trigger_background_scan()
 
-    def closeEvent(self, event):
-        """Hook executing automatically when window interface closes down."""
-        print("[UI] Cleaning up resources before window destruction...")
-        if self.observer:
+
+    def on_tray_icon_activated(self, reason):
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            self.showNormal()
+
+
+    def force_quit(self):
+        print("[UI] Full shutdown initiated...")
+        self.really_quit = True
+        # 1. Manually trigger the cleanup
+        self.cleanup_resources()
+        # 2. Hide everything
+        self.tray_icon.hide()
+        self.close()
+        # 3. Force the event loop to stop
+        QApplication.instance().quit()
+
+    def cleanup_resources(self):
+        print("[UI] Cleaning up resources...")
+        # Stop Watchdog
+        if hasattr(self, 'observer') and self.observer:
             self.observer.stop()
-            self.observer.join()
-        if self.scan_thread and self.scan_thread.isRunning():
+            # Use a timeout so it doesn't hang the terminal forever
+            self.observer.join(timeout=2) 
+        # Stop Scanning Thread
+        if hasattr(self, 'scan_thread') and self.scan_thread.isRunning():
             self.scan_thread.quit()
-            self.scan_thread.wait()
-            
-        event.accept()
+            self.scan_thread.wait(2000) # Wait 2 seconds max
+
+    def closeEvent(self, event):
+        if not self.really_quit:
+            self.hide()
+            event.ignore()
+            print("[UI] App hidden to system tray.")
+        else:
+            # We already cleaned up in force_quit
+            event.accept()
 
    
     @classmethod
     def start_class_app(cls, config, enable_watcher=True):
         """Class method acting as single blocking runtime launch engine hook."""
         app = QApplication.instance() or QApplication(sys.argv)
+        app.setQuitOnLastWindowClosed(False)
         window = cls(config, enable_watcher=enable_watcher)
         window.show()
         sys.exit(app.exec())
