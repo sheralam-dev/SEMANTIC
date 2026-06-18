@@ -1,4 +1,4 @@
-## SEMANTIC — Local Semantic Search (v0.1)
+## SEMANTIC — Local Semantic Search (v1.0)
 
 Lightweight local semantic search desktop app that indexes files, builds vector embeddings, and provides fast similarity search using an embedded SQLite vector store.
 
@@ -31,14 +31,14 @@ python run.py
 
 Requirements (see `requirements.txt`):
 
-- `sqlite-vec`, `watchdog`, `sentence_transformers`, `numpy`, `PySide6`
+- `sqlite-vec`, `watchdog`, `numpy`, `PySide6`, `onnxruntime`
 
 ---
 
 Configuration
 
 - Default paths and extensions can be adjusted in `run.py` or the relevant config helpers in `app/`.
-- Models are expected under the `models/` folder or loaded via the embedding adapter in `app/search/embedding_model.py`.
+- Models are expected under the `models/` folder or loaded via the embedding adapter in `app/search/embedding_model_onnx.py`.
 
 ---
 
@@ -69,7 +69,7 @@ How it works (high level)
 
 Development notes
 
-- Embedding dimension and model choice are pluggable via `app/search/embedding_model.py`.
+- Embedding dimension and model choice are pluggable via `app/search/embedding_model_onnx.py`.
 - Background scanning runs in a worker thread so the UI remains responsive.
 - Use `--reindex` during development when changing indexing logic.
 

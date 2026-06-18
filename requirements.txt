@@ -1,5 +1,5 @@
 sqlite-vec
 watchdog
-sentence_transformers
+onnxruntime
 numpy
 PySide6
