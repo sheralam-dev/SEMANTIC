@@ -52,7 +52,7 @@ class SearchApp(QWidget):
         self.scan_thread = None
         self.params = {"paths": [], "extensions": [], "batch_size": 200}
         
-        self.setWindowTitle("Semantic v_1.0")
+        self.setWindowTitle("Semantic v_1.1.0")
         self.resize(850, 600)
 
         # 1. Main Vertical Layout

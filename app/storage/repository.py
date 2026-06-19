@@ -7,10 +7,9 @@ from app.storage.models import File
 from app.search.embedding_model_onnx import embed_batch, embed_query, embed_text
 
 
-def search_similar_files(user_input: str, top_k: int, max_distance: float=0.55) -> List[File]:
+def search_similar_files(user_input: str, top_k: int, max_distance: float=0.395) -> List[File]:
     """Return most similar files based on vector distance."""
-    # today = datetime.now().strftime('%Y-%m-%d')
-    query = f"Represent this sentence for searching relevant passages:  {user_input}"
+    query = f"query:  {user_input}"
     query_vector = embed_query(query)
     db = get_connection()
     with db:
@@ -18,7 +17,7 @@ def search_similar_files(user_input: str, top_k: int, max_distance: float=0.55) 
     # print(f'{max_distance = }')
     # print([round(row[1], 3) for row in rows if row[1] < max_distance])
     return [
-        File(file_path=Path(Path(row[0])), score=row[1])
+        File(file_path=Path(Path(row[0])), score=round(row[1], 3))
         for row in rows
         if row[1] < max_distance
     ]

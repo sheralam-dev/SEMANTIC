@@ -11,13 +11,13 @@ _tokenizer = None
 _model_lock = Lock()
 
 def load_model(
-    model_name: str = "Snowflake/snowflake-arctic-embed-s-onnx-int8",
+    model_name: str = "onnx-community/bge-small-en-v1.5-ONNX",
     cache_dir: str = str(MODEL_PATH)
 ):
     global _model, _tokenizer
     
     # Mirroring your folder-naming system
-    repo_id = model_name.replace("/", "--")
+    repo_id = model_name.replace("/", "-")
     folder_name = f"models--{repo_id}"
     full_path = os.path.join(cache_dir, folder_name)
 
@@ -26,7 +26,8 @@ def load_model(
             return _model, _tokenizer
 
         # Path configurations for ONNX components
-        onnx_path = os.path.join(full_path, "model_quantized.onnx")
+        onnx_path = os.path.join(full_path, "onnx", "model_quantized.onnx")
+        onnx_data_path = os.path.join(full_path, "onnx", "model_quantized.onnx_data")
         tokenizer_path = os.path.join(full_path, "tokenizer.json")
 
         if not os.path.exists(onnx_path) or not os.path.exists(tokenizer_path):
@@ -40,9 +41,17 @@ def load_model(
         available_providers = ort.get_available_providers()
         provider = "CUDAExecutionProvider" if "CUDAExecutionProvider" in available_providers else "CPUExecutionProvider"
         
-        # Load components completely independent of Torch
+        # Load tokenizer
         _tokenizer = Tokenizer.from_file(tokenizer_path)
-        _model = ort.InferenceSession(onnx_path, providers=[provider])
+        
+        # Load ONNX model - need to specify data path for external weights
+        sess_options = ort.SessionOptions()
+        # The ONNX file references external data; need to set the path
+        _model = ort.InferenceSession(
+            onnx_path, 
+            sess_options=sess_options,
+            providers=[provider]
+        )
         
     return _model, _tokenizer
 
